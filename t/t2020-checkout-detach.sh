@@ -186,4 +186,110 @@ test_expect_success 'no advice given for explicit detached head state' '
 	test_cmp expect.no-advice actual
 '
 
+# Detached HEAD tests for GIT_PRINT_SHA1_ELLIPSIS
+
+# The first detach operation is more chatty than the following ones.
+cat > 1st_detach <<'EOF'
+Note: checking out 'HEAD^'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by performing another checkout.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -b with the checkout command again. Example:
+
+  git checkout -b <new-branch-name>
+
+HEAD is now at 7c7cd714e262 three
+EOF
+# The remaining ones just show info about previous and current HEADs.
+cat > 2nd_detach <<'EOF'
+Previous HEAD position was 7c7cd714e262 three
+HEAD is now at 139b20d8e6c5 two
+EOF
+cat > 3rd_detach <<'EOF'
+Previous HEAD position was 139b20d8e6c5 two
+HEAD is now at d79ce1670bdc one
+EOF
+test_expect_success 'describe_detached_head prints no SHA-1 ellipsis when not asked to' '
+	reset && check_not_detached && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	# Various ways of *not* asking for ellipses
+
+	unset GIT_PRINT_SHA1_ELLIPSIS && git -c 'core.abbrev=12' checkout HEAD^ 1> actual 2>&1 &&
+	check_detached &&
+	test_cmp 1st_detach actual && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	GIT_PRINT_SHA1_ELLIPSIS="no" git -c 'core.abbrev=12' checkout HEAD^ 1> actual 2>&1 &&
+	check_detached &&
+	test_cmp 2nd_detach actual && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	GIT_PRINT_SHA1_ELLIPSIS= git -c 'core.abbrev=12' checkout HEAD^ 1> actual 2>&1 &&
+	check_detached &&
+	test_cmp 3rd_detach actual && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	# We only have four commits, but we can re-use them
+	reset && check_not_detached && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	# Make no mention of the env var at all
+	git -c 'core.abbrev=12' checkout HEAD^ 1> actual 2>&1 &&
+	check_detached &&
+	test_cmp 1st_detach actual && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	GIT_PRINT_SHA1_ELLIPSIS='nope' && export GIT_PRINT_SHA1_ELLIPSIS && git -c 'core.abbrev=12' checkout HEAD^ 1> actual 2>&1 &&
+	check_detached &&
+	test_cmp 2nd_detach actual && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	GIT_PRINT_SHA1_ELLIPSIS=nein && export GIT_PRINT_SHA1_ELLIPSIS && git -c 'core.abbrev=12' checkout HEAD^ 1> actual 2>&1 &&
+	check_detached &&
+	test_cmp 3rd_detach actual && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	true
+'
+
+# The first detach operation is more chatty than the following ones.
+cat > 1st_detach <<'EOF'
+Note: checking out 'HEAD^'.
+
+You are in 'detached HEAD' state. You can look around, make experimental
+changes and commit them, and you can discard any commits you make in this
+state without impacting any branches by performing another checkout.
+
+If you want to create a new branch to retain commits you create, you may
+do so (now or later) by using -b with the checkout command again. Example:
+
+  git checkout -b <new-branch-name>
+
+HEAD is now at 7c7cd714e262... three
+EOF
+# The remaining ones just show info about previous and current HEADs.
+cat > 2nd_detach <<'EOF'
+Previous HEAD position was 7c7cd714e262... three
+HEAD is now at 139b20d8e6c5... two
+EOF
+cat > 3rd_detach <<'EOF'
+Previous HEAD position was 139b20d8e6c5... two
+HEAD is now at d79ce1670bdc... one
+EOF
+test_expect_success 'describe_detached_head does print SHA-1 ellipsis when asked to' '
+	reset && check_not_detached && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	# Various ways of asking for ellipses...
+
+	GIT_PRINT_SHA1_ELLIPSIS="yes" && export GIT_PRINT_SHA1_ELLIPSIS && git -c 'core.abbrev=12' checkout HEAD^ 1> actual 2>&1 &&
+	check_detached &&
+	test_cmp 1st_detach actual && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	GIT_PRINT_SHA1_ELLIPSIS='yes' git -c 'core.abbrev=12' checkout HEAD^ 1> actual 2>&1 &&
+	check_detached &&
+	test_cmp 2nd_detach actual && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	GIT_PRINT_SHA1_ELLIPSIS=yes git -c 'core.abbrev=12' checkout HEAD^ 1> actual 2>&1 &&
+	check_detached &&
+	test_cmp 3rd_detach actual && unset GIT_PRINT_SHA1_ELLIPSIS &&
+
+	true
+'
+
 test_done
