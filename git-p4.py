@@ -1103,6 +1103,15 @@ class GitLFS(LargeFileSystem):
     def __init__(self, *args):
         LargeFileSystem.__init__(self, *args)
         self.baseGitAttributes = []
+        self.retainPreviousLargeFiles()        
+
+    def retainPreviousLargeFiles(self):
+        if os.path.isfile('.gitattributes'):
+            with open('.gitattributes') as f:
+                for line in f:
+                    words = line.split(None, 1)
+                    if words and words[0][:1] is '/':
+                        LargeFileSystem.addLargeFile(self, words[0][1:]) 
 
     def generatePointer(self, contentFile):
         """Generate a Git LFS pointer for the content. Return LFS Pointer file
