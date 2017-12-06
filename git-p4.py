@@ -1136,7 +1136,8 @@ class GitLFS(LargeFileSystem):
             oid,
         )
         # LFS Spec states that pointer files should not have the executable bit set.
-        gitMode = '100644'
+        # I want LFS files that need executable permissions to keep X bit
+        gitMode = None
         return (gitMode, pointerFile, localLargeFile)
 
     def pushFile(self, localLargeFile):
@@ -1162,7 +1163,7 @@ class GitLFS(LargeFileSystem):
                 for f in sorted(gitConfigList('git-p4.largeFileDirectories'))
             ] +
             ['/' + f.replace(' ', '[[:space:]]') + ' filter=lfs diff=lfs merge=lfs -text\n'
-                for f in sorted(self.largeFiles) if not self.hasLargeFileExtension(f)
+                for f in sorted(self.largeFiles) if ( not self.hasLargeFileExtension(f) and not self.hasLargeFileDirectory(f) ) 
             ]
         )
 
@@ -1176,6 +1177,7 @@ class GitLFS(LargeFileSystem):
 
     def processContent(self, git_mode, relPath, contents):
         if relPath == '.gitattributes':
+            sys.stdout.write(".gitattributes file processing: %s \n" % (contents))
             self.baseGitAttributes = contents
             return (git_mode, self.generateGitAttributes())
         else:
