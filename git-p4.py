@@ -1122,9 +1122,6 @@ class GitLFS(LargeFileSystem):
         self.retainPreviousLargeFiles()
         self.initializedGitAttributes = False
  
-    def __del__(self):
-        self.writeToGitStream('100644', '.gitattributes', self.generateGitAttributes())
-
     def retainPreviousLargeFiles(self):
         if os.path.isfile('.gitattributes'):
             with open('.gitattributes') as f:
@@ -1219,7 +1216,7 @@ class GitLFS(LargeFileSystem):
         else:
             if not self.initializedGitAttributes:
                 self.writeToGitStream('100644', '.gitattributes', self.generateGitAttributes())
-                initializedGitAttributes = True
+                self.initializedGitAttributes = True
             return LargeFileSystem.processContent(self, git_mode, relPath, contents)
 
 class Command:
