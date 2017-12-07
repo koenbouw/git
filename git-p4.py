@@ -989,6 +989,11 @@ class LargeFileSystem(object):
 
     def __init__(self, writeToGitStream):
         self.largeFiles = set()
+        # large tracked files is a seperate list which includes a subset of large files that need to be added to .gitattributes. 
+        # this list would include files that passed the size threshold because it might not be covered by tracking of file extension or directory
+        # and files that are retained from previous .gitattributes which are also files that passed the size threshold
+        # this is done to speed up generation of .gitattributes as well as check in process content to keep files in LFS if they dip a little below the threshold
+        self.largeTrackedFiles = set()
         self.writeToGitStream = writeToGitStream
 
     def generatePointer(self, cloneDestination, contentFile):
@@ -1025,6 +1030,7 @@ class LargeFileSystem(object):
         if gitConfigInt('git-p4.largeFileThreshold'):
             contentsSize = sum(len(d) for d in contents)
             if contentsSize > gitConfigInt('git-p4.largeFileThreshold'):
+                self.addLargeTrackedFile(relPath)
                 return True
         if gitConfigInt('git-p4.largeFileCompressedThreshold'):
             contentsSize = sum(len(d) for d in contents)
@@ -1039,6 +1045,7 @@ class LargeFileSystem(object):
             os.remove(contentTempFile)
             os.remove(compressedContentFile.name)
             if compressedContentsSize > gitConfigInt('git-p4.largeFileCompressedThreshold'):
+                self.addLargeTrackedFile(relPath)
                 return True
         return False
 
@@ -1050,12 +1057,21 @@ class LargeFileSystem(object):
 
     def isLargeFile(self, relPath):
         return relPath in self.largeFiles
+ 
+    def addLargeTrackedFile(self, relPath):
+        self.largeTrackedFiles.add(relPath)
+
+    def removeLargeTrackedFile(self, relPath):
+        self.largeTrackedFiles.remove(relPath)
+
+    def isLargeTrackedFile(self, relPath):
+        return relPath in self.largeTrackedFiles
 
     def processContent(self, git_mode, relPath, contents):
         """Processes the content of git fast import. This method decides if a
            file is stored in the large file system and handles all necessary
            steps."""
-        if (self.exceedsLargeFileThreshold(relPath, contents) or self.hasLargeFileExtension(relPath) or self.hasLargeFileDirectory(relPath) or self.isLargeFile(relPath)) and (git_mode != "120000"):
+        if (self.hasLargeFileExtension(relPath) or self.hasLargeFileDirectory(relPath) or self.exceedsLargeFileThreshold(relPath, contents) or self.isLargeTrackedFile(relPath)) and (git_mode != "120000"):
             contentTempFile = self.generateTempFile(contents)
             (pointer_git_mode, contents, localLargeFile) = self.generatePointer(contentTempFile)
             if pointer_git_mode:
@@ -1111,7 +1127,8 @@ class GitLFS(LargeFileSystem):
                 for line in f:
                     words = line.split(None, 1)
                     if words and words[0][:1] is '/':
-                        LargeFileSystem.addLargeFile(self, words[0][1:]) 
+                        LargeFileSystem.addLargeFile(self,words[0][1:])
+                        LargeFileSystem.addLargeTrackedFile(self,words[0][1:]) 
 
     def generatePointer(self, contentFile):
         """Generate a Git LFS pointer for the content. Return LFS Pointer file
@@ -1172,7 +1189,7 @@ class GitLFS(LargeFileSystem):
                 for f in sorted(gitConfigList('git-p4.largeFileDirectories'))
             ] +
             ['/' + f.replace(' ', '[[:space:]]') + ' filter=lfs diff=lfs merge=lfs -text\n'
-                for f in sorted(self.largeFiles) if ( not self.hasLargeFileExtension(f) and not self.hasLargeFileDirectory(f) ) 
+                for f in sorted(self.largeTrackedFiles)
             ]
         )
 
@@ -2661,6 +2678,8 @@ class P4Sync(Command, P4UserMap):
 
         if self.largeFileSystem and self.largeFileSystem.isLargeFile(relPath):
             self.largeFileSystem.removeLargeFile(relPath)
+            if self.largeFileSystem.isLargeTrackedFile(relPath):
+                self.largeFileSystem.removeLargeTrackedFile(relPath)
 
     # handle another chunk of streaming data
     def streamP4FilesCb(self, marshalled):
