@@ -1119,7 +1119,11 @@ class GitLFS(LargeFileSystem):
     def __init__(self, *args):
         LargeFileSystem.__init__(self, *args)
         self.baseGitAttributes = []
-        self.retainPreviousLargeFiles()        
+        self.retainPreviousLargeFiles()
+        self.initializedGitAttributes = False
+ 
+    def __del__(self):
+        self.writeToGitStream('100644', '.gitattributes', self.generateGitAttributes())
 
     def retainPreviousLargeFiles(self):
         if os.path.isfile('.gitattributes'):
@@ -1127,8 +1131,8 @@ class GitLFS(LargeFileSystem):
                 for line in f:
                     words = line.split(None, 1)
                     if words and words[0][:1] is '/':
-                        LargeFileSystem.addLargeFile(self,words[0][1:])
-                        LargeFileSystem.addLargeTrackedFile(self,words[0][1:]) 
+                        self.largeFiles.add(words[0][1:])
+                        self.largeTrackedFiles.add(words[0][1:]) 
 
     def generatePointer(self, contentFile):
         """Generate a Git LFS pointer for the content. Return LFS Pointer file
@@ -1195,10 +1199,16 @@ class GitLFS(LargeFileSystem):
 
     def addLargeFile(self, relPath):
         LargeFileSystem.addLargeFile(self, relPath)
-        self.writeToGitStream('100644', '.gitattributes', self.generateGitAttributes())
 
     def removeLargeFile(self, relPath):
         LargeFileSystem.removeLargeFile(self, relPath)
+
+    def addLargeTrackedFile(self, relPath):
+        self.largeTrackedFiles.add(relPath)
+        self.writeToGitStream('100644', '.gitattributes', self.generateGitAttributes())
+
+    def removeLargeTrackedFile(self, relPath):
+        self.largeTrackedFiles.remove(relPath)
         self.writeToGitStream('100644', '.gitattributes', self.generateGitAttributes())
 
     def processContent(self, git_mode, relPath, contents):
@@ -1207,6 +1217,9 @@ class GitLFS(LargeFileSystem):
             self.baseGitAttributes = contents
             return (git_mode, self.generateGitAttributes())
         else:
+            if not self.initializedGitAttributes:
+                self.writeToGitStream('100644', '.gitattributes', self.generateGitAttributes())
+                initializedGitAttributes = True
             return LargeFileSystem.processContent(self, git_mode, relPath, contents)
 
 class Command:
