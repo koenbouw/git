@@ -1186,7 +1186,7 @@ class GitLFS(LargeFileSystem):
             ['*.' + f.replace(' ', '[[:space:]]') + ' filter=lfs diff=lfs merge=lfs -text\n'
                 for f in sorted(gitConfigList('git-p4.largeFileExtensions'))
             ] +
-            [f.replace(' ', '[[:space:]]') + '/* filter=lfs diff=lfs merge=lfs -text\n'
+            [f.replace(' ', '[[:space:]]') + '/**/* filter=lfs diff=lfs merge=lfs -text\n'
                 for f in sorted(gitConfigList('git-p4.largeFileDirectories'))
             ] +
             ['/' + f.replace(' ', '[[:space:]]') + ' filter=lfs diff=lfs merge=lfs -text\n'
